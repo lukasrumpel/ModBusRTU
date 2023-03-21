@@ -11,9 +11,11 @@
 #include <string.h>
 #include <shalf1.h>
 
+
+
 //global variables
-static uint16_t registers[2] = {0, 0};
-static uint8_t deviceAddress;
+static uint16_t registers[2] = {69, 96};
+static uint8_t deviceAddress =1;
 static uint8_t readData[6];
 static uint8_t slaveAdr = 0;
 static uint8_t funcCode = 0;
@@ -62,7 +64,7 @@ extern uint16_t modbusCRC(uint8_t *data, uint8_t len){
 	return crc;
 }
 
-extern void modbusResponse(uint8_t *data, uint8_t len){
+extern void modbusResponse(char *data, uint8_t len){
 	slaveAdr = 0;
 	funcCode = 0;
 	regAdr = 0;
@@ -81,7 +83,7 @@ extern void modbusResponse(uint8_t *data, uint8_t len){
 	case 0x03: //read Holdregisters
 		if((regAdr == 0x00) || (regAdr == 0x01)){
 			uint8_t responseLen = 2*numOfRegs+5;
-			uint8_t response[responseLen];
+			char response[responseLen];
 			response[0] = deviceAddress;
 			response[1] = 0x03;
 			response[2] = 2*numOfRegs+5;
@@ -96,7 +98,7 @@ extern void modbusResponse(uint8_t *data, uint8_t len){
 			uint16_t crc = modbusCRC(response, responseLen-2);
 			response[responseLen-2] = crc;
 			response[responseLen-1] = crc >> 8;
-			USARTSendString(USART1, (char*)response);
+			USARTSendStringMB(USART1, response, responseLen+1);
 		}
 		break;
 	default:
@@ -104,3 +106,11 @@ extern void modbusResponse(uint8_t *data, uint8_t len){
 		break;
 	}
 }
+
+void setCounter(int cntVal){
+	registers[0] = cntVal;
+}
+
+//TODO
+//-function for checking crc
+//-implement more fuccodes
