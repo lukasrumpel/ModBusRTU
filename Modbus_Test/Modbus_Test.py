@@ -21,7 +21,7 @@ MBcmd.set("03");
 MBreg1.set("00");
 MBreg2.set("00");
 MBnum1.set("00");
-MBnum2.set("01");
+MBnum2.set("02");
 data = [];
 
 def crc16(data : bytearray, offset , length):
