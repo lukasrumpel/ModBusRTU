@@ -21,6 +21,5 @@ extern modbusErrCode registerWrite(uint8_t regAdr, uint16_t regData);
 extern modbusErrCode setSlaveAddress(uint8_t address);
 extern uint16_t modbusCRC(uint8_t *data, uint8_t len);
 extern void modbusResponse(char *data, uint8_t len);
-extern void setCounter(int cntVal);
 
 #endif /* INC_MODBUSRTU_H_ */

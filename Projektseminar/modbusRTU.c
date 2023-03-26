@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <shalf1.h>
+#include <rs485uart.h>
 
 
 
@@ -107,9 +108,6 @@ extern void modbusResponse(char *data, uint8_t len){
 	}
 }
 
-void setCounter(int cntVal){
-	registers[0] = cntVal;
-}
 
 //TODO
 //-function for checking crc
