@@ -23,6 +23,13 @@ static uint8_t funcCode = 0;
 static uint16_t regAdr = 0;
 static uint16_t numOfRegs = 0;
 
+/*
+Desc.: Register Read
+@param: (uint8_t) regAdr: Modbus Register Address
+
+@return: (ModbusErrorCode) Register out of Range
+*/
+
 extern uint16_t registerRead(uint8_t regAdr){
 	if(regAdr < 2){
 		return registers[regAdr];
@@ -31,6 +38,14 @@ extern uint16_t registerRead(uint8_t regAdr){
 		return regOutOfBound;
 	}
 }
+
+/*
+Desc.: ModBus ErrorCode
+@param: (uint8_t) regAdr: Modbus Register Address
+@param: (uint16_t) regData: Modbus Register Data
+
+@return: (ModbusErrorCode) Register out of Range
+*/
 
 extern modbusErrCode registerWrite(uint8_t regAdr, uint16_t regData){
 	if(regAdr < 2){
