@@ -21,14 +21,7 @@ static uint8_t readData[6];
 static uint8_t slaveAdr = 0;
 static uint8_t funcCode = 0;
 static uint16_t regAdr = 0;
-static uint16_t numOfRegs = 0;
-
-/*
-Desc.: Register Read
-@param: (uint8_t) regAdr: Modbus Register Address
-
-@return: (ModbusErrorCode) Register out of Range
-*/
+static uint16_t payload = 0;
 
 extern uint16_t registerRead(uint8_t regAdr){
 	if(regAdr < 2){
@@ -38,14 +31,6 @@ extern uint16_t registerRead(uint8_t regAdr){
 		return regOutOfBound;
 	}
 }
-
-/*
-Desc.: ModBus ErrorCode
-@param: (uint8_t) regAdr: Modbus Register Address
-@param: (uint16_t) regData: Modbus Register Data
-
-@return: (ModbusErrorCode) Register out of Range
-*/
 
 extern modbusErrCode registerWrite(uint8_t regAdr, uint16_t regData){
 	if(regAdr < 2){
@@ -84,33 +69,53 @@ extern void modbusResponse(char *data, uint8_t len){
 	slaveAdr = 0;
 	funcCode = 0;
 	regAdr = 0;
-	numOfRegs = 0;
+	payload = 0;
 	memcpy(readData, data, 6);
 	slaveAdr = readData[0]; //Bit shifting überprüfen! -> passt!
 	funcCode = readData[1];
 	regAdr = readData[2] << 8;
 	regAdr |= readData[3];
-	numOfRegs = readData[4] << 8;
-	numOfRegs |= readData[5];
+	payload = readData[4] << 8;
+	payload |= readData[5];
 	if(slaveAdr != deviceAddress){
 		return;
 	}
 	switch(funcCode){
 	case 0x03: //read Holdregisters
 		if((regAdr == 0x00) || (regAdr == 0x01)){
-			uint8_t responseLen = 2*numOfRegs+5;
+			uint8_t responseLen = 2*payload+5;
 			char response[responseLen];
 			response[0] = deviceAddress;
 			response[1] = 0x03;
-			response[2] = 2*numOfRegs+5;
+			response[2] = 2*payload+5;
 			uint8_t idx = 3;
 			uint8_t i;
 			uint16_t buff;
-			for(i=numOfRegs; i > 0; i--){
+			for(i=payload; i > 0; i--){
 				buff = registerRead(i-1);
 				response[idx++] = (buff >> 8) & 0xFF;
 				response[idx++] = buff;
 			}
+			uint16_t crc = modbusCRC(response, responseLen-2);
+			response[responseLen-2] = crc;
+			response[responseLen-1] = crc >> 8;
+			USARTSendStringMB(USART1, response, responseLen+1);
+		}
+		break;
+	case 0x06: //set a analog read register
+		if((regAdr == 0x00) || (regAdr == 0x01)){
+			registerWrite(regAdr, payload);
+			uint8_t responseLen = 2*1+5;
+			char response[responseLen];
+			response[0] = deviceAddress;
+			response[1] = 0x06;
+			response[2] = responseLen;
+			uint8_t idx = 3;
+			uint8_t i;
+			uint16_t buff;
+			buff = registerRead(regAdr);
+			response[3] = (buff >> 8) & 0xFF;
+			response[4] = buff;
 			uint16_t crc = modbusCRC(response, responseLen-2);
 			response[responseLen-2] = crc;
 			response[responseLen-1] = crc >> 8;
