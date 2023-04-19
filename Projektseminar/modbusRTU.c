@@ -2,16 +2,13 @@
  * modbusRTU.c
  *
  *  Created on: 13.02.2023
- *      Author: lukas
+ *      Author: lukasrumpel
  */
 #include "modbusRTU.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <shalf1.h>
-#include <rs485uart.h>
-
 
 
 //global variables
@@ -28,6 +25,11 @@ static uint16_t buff = 0;
 static uint16_t crc = 0;
 static uint16_t crcReceived = 0;
 
+/*
+  * Desc.: Wert aus definierten Registern auslesen bei zulässiger Registeradresse
+  * @param: (uint8_t) regAdr: Registeradresse
+  * @return: Fehlercode: regOutOfBound
+  */
 extern uint16_t registerRead(uint8_t regAdr){
 	if(regAdr < 2){
 		return registers[regAdr];
@@ -37,6 +39,12 @@ extern uint16_t registerRead(uint8_t regAdr){
 	}
 }
 
+/*
+  * Desc.: Wert an eine Adresse des Registers schreiben
+  * @param: (uint8_t) regAdr: Registeradresse
+  * @param: (uint8_t) regData: Datenwert
+  * @return: Fehlercode: modbusOK, regOutOfBound
+  */
 extern modbusErrCode registerWrite(uint8_t regAdr, uint16_t regData){
 	if(regAdr < 2){
 			registers[regAdr] = regData;
@@ -47,11 +55,22 @@ extern modbusErrCode registerWrite(uint8_t regAdr, uint16_t regData){
 	}
 }
 
+/*
+  * Desc.: Slaveadresse setzen
+  * @param: (uint8_t) adress: Slaveadresse
+  * @return: Fehlercode: modbusOK
+  */
 extern modbusErrCode setSlaveAddress(uint8_t address){
 	deviceAddress = address;
 	return modbusOK;
 }
 
+/*
+  * Desc.: CRC-Berechnung
+  * @param: (uint8_t*) data: die zu überprüfenden Daten
+  * @param: (uint8_t) len: Länge der Daten in Bytes
+  * @return: (uint16_t) crc: berechnete Prüfsumme
+  */
 extern uint16_t modbusCRC(uint8_t *data, uint8_t len){
 	uint16_t crc = ~0x0000;
 	uint8_t i;
@@ -70,6 +89,11 @@ extern uint16_t modbusCRC(uint8_t *data, uint8_t len){
 	return crc;
 }
 
+/*
+  * Desc.: Check ob die Empfangene Pruefsumme korrekt ist
+  * @param: none
+  * @return: none
+  */
 extern bool modbusCheckCRC(){
 	crc = modbusCRC(readData, 6);
 	if(crc == crcReceived){
@@ -82,7 +106,14 @@ extern bool modbusCheckCRC(){
 	}
 }
 
-extern void modbusResponse(char *data, uint8_t len){
+/*
+  * Desc.: Auslesen der übermittelten Daten & Erstellung einer Antwort an den Master. Mögliche Funktionscodes: 0x03 (Register lesen und senden), 0x06 (Register überschreiben und senden)
+  * @param: (char*) data: Daten
+  * @param: (uint8_t) len: Länge der Daten
+  * @param: (char*) returnBuffer: Puffer in den die Antwort geschrieben wird
+  * @return: (uint8_t) Laenge der Antwort
+  */
+extern uint8_t modbusResponse(char *data, uint8_t len, char *returnBuffer){
 	slaveAdr = 0;
 	funcCode = 0;
 	regAdr = 0;
@@ -91,7 +122,8 @@ extern void modbusResponse(char *data, uint8_t len){
 	idx = 0;
 	buff = 0;
 	crc = 0;
-	memcpy(readData, data, 6);
+	crcReceived = 0;
+	memcpy(readData, data, 8);
 	slaveAdr = readData[0]; //Bit shifting überprüfen! -> passt!
 	funcCode = readData[1];
 	regAdr = readData[2] << 8;
@@ -101,10 +133,10 @@ extern void modbusResponse(char *data, uint8_t len){
 	crcReceived = readData[6] << 8;
 	crcReceived |= readData[7];
 	if(slaveAdr != deviceAddress){
-		return;
+		return 0;
 	}
 	if(!(modbusCheckCRC())){
-		return;
+		return 0;
 	}
 	switch(funcCode){
 	case 0x03: //read Holdregisters
@@ -125,7 +157,8 @@ extern void modbusResponse(char *data, uint8_t len){
 			crc = modbusCRC(response, responseLen-2);
 			response[responseLen-2] = crc;
 			response[responseLen-1] = crc >> 8;
-			USARTSendStringMB(USART1, response, responseLen+1);
+			memcpy(returnBuffer, response, responseLen);
+			return responseLen+1;
 		}
 		break;
 	case 0x06: //set a analog read register
@@ -144,7 +177,8 @@ extern void modbusResponse(char *data, uint8_t len){
 			crc = modbusCRC(response, responseLen-2);
 			response[responseLen-2] = crc;
 			response[responseLen-1] = crc >> 8;
-			USARTSendStringMB(USART1, response, responseLen+1);
+			memcpy(returnBuffer, response, responseLen);
+			return responseLen+1;
 		}
 		break;
 	case 0x69: //set new modbus adr
@@ -160,16 +194,14 @@ extern void modbusResponse(char *data, uint8_t len){
 			crc = modbusCRC(response, responseLen-2);
 			response[responseLen-2] = crc;
 			response[responseLen-1] = crc >> 8;
-			USARTSendStringMB(USART1, response, responseLen+1);
+			memcpy(returnBuffer, response, responseLen);
+			return responseLen+1;
 		}
 		break;
 	default:
-		return;
+		return 0;
 		break;
 	}
+	return 0;
 }
 
-
-//TODO
-//-function for checking crc
-//-implement more fuccodes
