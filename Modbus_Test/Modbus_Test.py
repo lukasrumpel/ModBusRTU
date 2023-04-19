@@ -1,7 +1,10 @@
 import serial;
 from tkinter import *
 from threading import*
-import crc
+import tkinter.messagebox;
+import crcmod
+#import crc16
+
 
 fenster = Tk();
 fenster.title("Modbus Testprogramm") 
@@ -9,7 +12,7 @@ labelSlaveAdr = Label(master=fenster);
 labelFuncCode = Label(master=fenster);
 labelNumOfBytes = Label(master=fenster); 
 textData = Text(master=fenster, width=30, height=5);
-ser = serial.Serial('/dev/ttyUSB0', 19200, timeout=0.3);
+ser = serial.Serial('/dev/ttyUSB0', 9600, timeout=0.3);
 MBadr = StringVar();
 MBcmd = StringVar();
 MBreg1 = StringVar();
@@ -21,46 +24,54 @@ MBcmd.set("03");
 MBreg1.set("00");
 MBreg2.set("00");
 MBnum1.set("00");
-MBnum2.set("02");
+MBnum2.set("01");
 data = [];
+crc16 = crcmod.mkCrcFun(0x18005, rev=False, initCrc=0xFFFF, xorOut=0x0000);
 
-def crc16(data : bytearray, offset , length):
-    if data is None or offset < 0 or offset > len(data)- 1 and offset+length > len(data):
-        return 0
-    crc = 0xFFFF
-    for i in range(0, length):
-        crc ^= data[offset + i] << 8
-        for j in range(0,8):
-            if (crc & 0x8000) > 0:
-                crc =(crc << 1) ^ 0x1021
+def calcCRC(data):
+    crc = 0xFFFF;
+    for i in range(len(data)):
+        crc ^= data[i];
+        for b in range(8):
+            if (crc & 1) != 0:
+                crc = (crc>>1) ^ 0xA001;
             else:
-                crc = crc << 1
-    return crc & 0xFFFF
+                crc >>= 1;
+    return crc;
 
 def sendCMD():
     labelSlaveAdr.config(text="");
     labelFuncCode.config(text="");
     labelNumOfBytes.config(text="");
-    textData.delete("1.0" , "end")
+    textData.delete("1.0" , "end");
     cmd = [int(MBadr.get(), base=16), int(MBcmd.get(), base=16), int(MBreg1.get(), base=16), int(MBreg2.get(), base=16), int(MBnum1.get(), base=16), int(MBnum2.get(), base=16)];
-    crcSum =crc16(cmd, 0, len(cmd));
-    crcLB = crcSum & 0xFF;
-    crcHB = crcSum>>8 & 0xFF;
-    cmd = [int(MBadr.get(), base=16), int(MBcmd.get(), base=16), int(MBreg1.get(), base=16), int(MBreg2.get(), base=16), int(MBnum1.get(), base=16), int(MBnum2.get(), base=16), int(hex(crcHB), base=16), int(hex(crcLB), base=16)];
+    crcVal = calcCRC(cmd);
+    tkinter.messagebox.showinfo(title="crc", message=str(crcVal));
+    crcLB = crcVal & 0x00FF;
+    crcHB = (crcVal>>8);
+    cmd = [int(MBadr.get(), base=16), int(MBcmd.get(), base=16), int(MBreg1.get(), base=16), int(MBreg2.get(), base=16), int(MBnum1.get(), base=16), int(MBnum2.get(), base=16), crcHB, crcLB];
     cmd = bytearray(cmd)
     cmd = cmd + b"\n";
     ser.write(cmd);
     adrOfSlave = ser.read();
     funcCode = ser.read();
     numOfBytes = int.from_bytes(ser.read(), 'big');
-    for i in range(numOfBytes-2):
-        data.append(int.from_bytes(ser.read(), 'big'));
+    #for i in range(numOfBytes-2):
+    #    data.append(int.from_bytes(ser.read(), 'big'));
+   
+    buff = ser.readline();
+    for i in buff:
+        data.append(int(str(i), base=10)); 
+    
+    ser.reset_input_buffer();
+    ser.reset_output_buffer();
     labelSlaveAdr.config(text="Adr:" + str(adrOfSlave));
     labelFuncCode.config(text="Funccode: " + str(funcCode));
     labelNumOfBytes.config(text="Bytes: " + str(numOfBytes));
-    data.pop();
     textData.insert(END, data);
     data.clear();
+    buff = 0;
+    
     
 
 def initWindow():
