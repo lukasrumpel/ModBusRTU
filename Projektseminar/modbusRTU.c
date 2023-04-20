@@ -150,7 +150,7 @@ extern uint8_t modbusResponse(char *data, uint8_t len, char *returnBuffer){
 			uint8_t i;
 			//uint16_t buff;
 			for(i=payload; i > 0; i--){
-				buff = registerRead(i-1);
+				buff = registerRead(regAdr+i-1);
 				response[idx++] = (buff >> 8) & 0xFF;
 				response[idx++] = buff;
 			}
