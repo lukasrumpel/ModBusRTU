@@ -63,5 +63,9 @@ class CmodbusConnecton:
         return;
 
     def setSlaveAdr(self, newSlaveAdr)->None:
-        self.sendRequest(funcCode=CfuncCode.changeModbusAdr, register=0, payload=newSlaveAdr);
+        if ((newSlaveAdr >= 0) and (newSlaveAdr <= 255)):
+            self.sendRequest(funcCode=CfuncCode.changeModbusAdr, register=0, payload=newSlaveAdr);
+            self.slaveAdr = newSlaveAdr;
+        else:
+            return;
         return;
