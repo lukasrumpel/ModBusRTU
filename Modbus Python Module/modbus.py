@@ -26,24 +26,31 @@ class CmodbusConnecton:
                     crc >>= 1;
         return crc;
     
-    def sendRequest(self, funcCode:CfuncCode, register, payload)->None:
+    def sendRequest(self, funcCode:CfuncCode, register, payload, loraFlag=False, loraPayload="")->None:
         buffer = [];
-        registerLB = register & 0x00FF;
-        registerHB = register>>8;
-        payloadLB = payload & 0x00FF;
-        payloadHB = payload >> 8;
-        command = [self.slaveAdr, funcCode.value, registerHB, registerLB, payloadHB, payloadLB];
-        crcVal = self.calcCRC(command);
-        crcLB = crcVal & 0x00FF;
-        crcHB = (crcVal>>8);
-        command = [self.slaveAdr, funcCode.value, registerHB, registerLB, payloadHB, payloadLB, crcHB, crcLB];
-        command = bytearray(command);
-        self.serialPort.write(command);
-        buff = self.serialPort.readline();
-        buff = buff[1:len(buff)-1];
-        for i in buff:
-            self.respone.append(int(str(i), base=10)); 
-        return
+        if(loraFlag):
+            registerLB = register & 0x00FF;
+            registerHB = register>>8;
+            payloadLB = payload & 0x00FF;
+            payloadHB = payload >> 8;
+            command = [self.slaveAdr, funcCode.value, registerHB, registerLB, payloadHB, payloadLB];
+            crcVal = self.calcCRC(command);
+            crcLB = crcVal & 0x00FF;
+            crcHB = (crcVal>>8);
+            command = [self.slaveAdr, funcCode.value, registerHB, registerLB, payloadHB, payloadLB, crcHB, crcLB];
+            command = bytearray(command);
+            self.serialPort.write(command);
+            buff = self.serialPort.readline();
+            buff = buff[1:len(buff)-1];
+            for i in buff:
+                self.respone.append(int(str(i), base=10)); 
+            return;
+        else:
+            buff = loraPayload;
+            buff = buff[1:len(buff)-1];
+            for i in loraPayload:
+                self.respone.append(int(str(i), base=10)); 
+            return;
     
     def getAnalogHoldRegister(self, registerAdr=0, numOfRegs=1)->list:
         if numOfRegs != 0:
